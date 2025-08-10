@@ -44,4 +44,14 @@ public class Taskcontroller {
         taskservices.toggleTasks(id);
         return "redirect:/";
     }
+
+    @Controller
+    public class LoginController {
+
+        @GetMapping("/login")
+        public String showLoginPage() {
+            return "login";
+        }
+    }
+
 }

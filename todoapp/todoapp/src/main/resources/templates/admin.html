@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>notification</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+</head>
+<body>
+<input type="text" id="message" placeholder="Enter message">
+<button onclick="sendMessage()">Send</button>
+<div id="notifications"></div>
+
+</body>
+
+<script>
+  let stompClient = null;
+
+  function connect() {
+      const socket = new SockJS('/ws');
+      stompClient = Stomp.over(socket);
+
+      stompClient.connect({}, function () {
+          stompClient.subscribe('/topic/notifications', function (message) {
+              showNotification(message.body);
+          });
+      });
+  }
+
+  function showNotification(message) {
+      const notifications = document.getElementById('notifications');
+      const notification = document.createElement('p');
+      notification.textContent = message;
+      notifications.appendChild(notification);
+  }
+
+  function sendMessage() {
+      const msg = document.getElementById('message').value;
+      stompClient.send('/app/sendMessage', {}, msg);
+  }
+
+  connect();
+</script>
+</html>
