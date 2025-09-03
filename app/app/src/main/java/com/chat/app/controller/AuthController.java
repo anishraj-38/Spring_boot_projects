@@ -6,18 +6,16 @@ import com.chat.app.dto.LoginRequestDTO;
 import com.chat.app.dto.LoginResponseDTO;
 import com.chat.app.dto.RegisterRequestDTO;
 import com.chat.app.dto.UserDTO;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import com.chat.app.models.User;
+
+import java.util.Map;
 
 
 @RestController
@@ -31,13 +29,12 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
-    // Signup
+
     @PostMapping("signup")
     public ResponseEntity<UserDTO> signup(@RequestBody RegisterRequestDTO registerRequestDTO) {
         return ResponseEntity.ok(authService.signup(registerRequestDTO));
     }
 
-    // Login
     @PostMapping("login")
     public ResponseEntity<UserDTO> login(@RequestBody LoginRequestDTO loginRequestDTO) {
         LoginResponseDTO loginResponseDTO = authService.login(loginRequestDTO);
@@ -57,12 +54,15 @@ public class AuthController {
 
     }
 
-    // Logout
-    public ResponseEntity<String> logout() {
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(){
         return authService.logout();
     }
-
-    // Get Current User
+    @GetMapping("/getonlineusers")
+    public ResponseEntity<Map<String,Object>> getOnlineUsers(){
+        return ResponseEntity.ok(authService.getOnlineUsers());
+    }
+    @GetMapping("getcurrentuser")
     public ResponseEntity<?> getCurrentUser(Authentication authentication) {
         if (authentication == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User Not Authorized");

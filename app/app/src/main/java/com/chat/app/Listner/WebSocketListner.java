@@ -2,6 +2,7 @@ package com.chat.app.Listner;
 
 import com.chat.app.Service.UserService;
 import com.chat.app.models.Message;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
@@ -11,11 +12,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
-import java.util.logging.Logger;
-
-
 @Component
 public class WebSocketListner {
+
+    private static final Logger logger = LoggerFactory.getLogger(WebSocketListner.class);
 
     @Autowired
     private SimpMessageSendingOperations messagingTemplate;
@@ -23,23 +23,26 @@ public class WebSocketListner {
     @Autowired
     private UserService userService;
 
-    @Autowired
-    private static final Logger logger = (Logger) LoggerFactory.getLogger(WebSocketListner.class);
+    @EventListener
+    public void handleWebsocketConnectListener(SessionConnectedEvent event) {
+        logger.info("✅ Connected to websocket");
+    }
 
     @EventListener
-    public void handleWebsocketConnectListener(SessionConnectedEvent event){
-        logger.info(" Connected to websocket ");
-    }
-    public void handleWebsocketDisconnectListener(SessionDisconnectEvent event){
+    public void handleWebsocketDisconnectListener(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        String username = headerAccessor.getSessionAttributes().get("username").toString();
 
+        Object usernameObj = headerAccessor.getSessionAttributes().get("username");
+        if (usernameObj != null) {
+            String username = usernameObj.toString();
+            logger.info("❌ User disconnected: {}", username);
 
-        System.out.println(" ** User disconnected from the websocket ** ");
-       userService.setUserOnlineStatus(username,false);
-       Message message = new Message();
-       message.setType(Message.MessageType.LEAVE);
-       message.setSender(username);
-       messagingTemplate.convertAndSend("/topic/public",message);
+            userService.setUserOnlineStatus(username, false);
+
+            Message message = new Message();
+            message.setType(Message.MessageType.LEAVE);
+            message.setSender(username);
+            messagingTemplate.convertAndSend("/topic/public", message);
+        }
     }
 }
