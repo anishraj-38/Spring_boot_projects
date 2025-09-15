@@ -180,5 +180,19 @@ catch(error){
 
 
 }
+},
+
+
+getOnlineUsers : async () => {
+  try{
+    const response = await api.get('/api/auth/getonlineusers');
+    return response.data;
+  }
+  catch(error){
+    console.error('Failed to fetch online users',error);
+    throw error;
+  }
+  
 }
+
 }

@@ -15,7 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.chat.app.models.User;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 
 @RestController
@@ -28,6 +30,8 @@ public class AuthController {
 
     @Autowired
     private AuthService authService;
+
+
 
 
     @PostMapping("signup")
@@ -62,6 +66,7 @@ public class AuthController {
     public ResponseEntity<Map<String,Object>> getOnlineUsers(){
         return ResponseEntity.ok(authService.getOnlineUsers());
     }
+
     @GetMapping("getcurrentuser")
     public ResponseEntity<?> getCurrentUser(Authentication authentication) {
         if (authentication == null) {
@@ -74,6 +79,7 @@ public class AuthController {
         return ResponseEntity.ok(convertToUserDTO(user));
 
     }
+
     public UserDTO convertToUserDTO(User user){UserDTO userDTO = new UserDTO();
         userDTO.setId(user.getId());
         userDTO.setUsername(user.getUsername());
