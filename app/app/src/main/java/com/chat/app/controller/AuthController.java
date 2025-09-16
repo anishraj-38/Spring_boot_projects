@@ -1,7 +1,7 @@
 package com.chat.app.controller;
 
 import com.chat.app.Repository.UserRepository;
-import com.chat.app.Service.AuthService;
+import com.chat.app.Service.AuthenticationService;
 import com.chat.app.dto.LoginRequestDTO;
 import com.chat.app.dto.LoginResponseDTO;
 import com.chat.app.dto.RegisterRequestDTO;
@@ -15,9 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.chat.app.models.User;
 
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 
 @RestController
@@ -29,7 +27,7 @@ public class AuthController {
     private UserRepository userRepository;
 
     @Autowired
-    private AuthService authService;
+    private AuthenticationService authService;
 
 
 

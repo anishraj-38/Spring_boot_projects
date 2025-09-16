@@ -4,21 +4,20 @@ server:
 spring:
   datasource:
     url: jdbc:h2:mem:realchatapp
-    username: root
-    password: anish
+    username: sa
+    password:
     driver-class-name: org.h2.Driver
 
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update   # (use 'create-drop' only for dev)
     show-sql: true
+
   h2:
     console:
       enabled: true
 
 jwt:
-  secret:
-  expiration:
-
-
+  secret: mySuperSecretKey12345
+  expiration: 3600000   # 1 hour
