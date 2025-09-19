@@ -1,220 +1,198 @@
-import React, { useState, useEffect, useRef } from 'react';
-import '../styles/PrivateChat.css';
+import React, { useState, useEffect, useRef } from "react";
+import "../styles/PrivateChat.css";
 
 const PrivateChat = ({
-                         currentUser,
-                         recipientUser,
-                         userColor,
-                         stompClient,
-                         onClose,
-                         registerPrivateMessageHandler,
-                         unregisterPrivateMessageHandler
-                     }) => {
-    const [messages, setMessages] = useState([]);
-    const [message, setMessage] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
-    const messagesEndRef = useRef(null);
-    const messageIdsRef = useRef(new Set());
+  currentUser,
+  recipientUser,
+  userColor,
+  stompClient,
+  onClose,
+  registerPrivateMessageHandler,
+  unregisterPrivateMessageHandler,
+}) => {
+  const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const emojis = ["😀", "😂", "❤️", "👍", "😢", "🔥", "🚀", "✨", "😎"];
+
+  useEffect(() => {
+    const handler = (privateMessage) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          ...privateMessage,
+          timestamp: privateMessage.timestamp || new Date(),
+          id: privateMessage.id || Date.now() + Math.random(),
+        },
+      ]);
     };
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
+    registerPrivateMessageHandler(recipientUser, handler);
 
-    const createMessageId = (msg) => {
-        return `${msg.sender}-${msg.recipient}-${msg.content}-${msg.timestamp}`;
+    return () => {
+      unregisterPrivateMessageHandler(recipientUser);
+      clearTimeout(typingTimeoutRef.current);
     };
+  }, [recipientUser, registerPrivateMessageHandler, unregisterPrivateMessageHandler]);
 
-    const handleIncomingPrivateMessage = (privateMessage) => {
-        const messageId = privateMessage.id || createMessageId(privateMessage);
-        const isOwnMessage = privateMessage.sender === currentUser;
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-        const isRelevantMessage =
-            (privateMessage.sender === currentUser && privateMessage.recipient === recipientUser) ||
-            (privateMessage.sender === recipientUser && privateMessage.recipient === currentUser);
-
-        if (isRelevantMessage && !isOwnMessage) {
-            if (!messageIdsRef.current.has(messageId)) {
-                const newMessage = {
-                    ...privateMessage,
-                    id: messageId
-                };
-
-                messageIdsRef.current.add(messageId);
-                setMessages(prev => [...prev, newMessage]);
-            }
-        }
-    };
-
-    useEffect(() => {
-        let isMounted = true;
-
-        const loadMessageHistory = async () => {
-            try {
-                const response = await fetch(
-                    `http://localhost:8080/api/messages/private?user1=${currentUser}&user2=${recipientUser}`
-                );
-                if (response.ok && isMounted) {
-                    const history = await response.json();
-                    const processedHistory = history.map(msg => {
-                        const messageId = msg.id || createMessageId(msg);
-                        return {
-                            ...msg,
-                            id: messageId
-                        };
-                    });
-
-                    messageIdsRef.current.clear();
-                    processedHistory.forEach(msg => {
-                        messageIdsRef.current.add(msg.id);
-                    });
-
-                    setMessages(processedHistory);
-                }
-            } catch (error) {
-                console.error('Error loading message history:', error);
-            } finally {
-                if (isMounted) {
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        loadMessageHistory();
-        registerPrivateMessageHandler(recipientUser, handleIncomingPrivateMessage);
-
-        return () => {
-            isMounted = false;
-            unregisterPrivateMessageHandler(recipientUser);
-        };
-    }, [currentUser, recipientUser, registerPrivateMessageHandler, unregisterPrivateMessageHandler]);
-
-    const sendPrivateMessage = (e) => {
-        e.preventDefault();
-
-        if (message.trim() && stompClient.current && stompClient.current.connected) {
-            const timestamp = new Date();
-            const privateMessage = {
-                sender: currentUser,
-                recipient: recipientUser,
-                content: message.trim(),
-                type: 'PRIVATE_MESSAGE',
-                color: userColor,
-                timestamp: timestamp
-            };
-
-            const messageId = createMessageId(privateMessage);
-            const messageWithId = {
-                ...privateMessage,
-                id: messageId
-            };
-
-            if (!messageIdsRef.current.has(messageId)) {
-                messageIdsRef.current.add(messageId);
-                setMessages(prev => [...prev, messageWithId]);
-            }
-
-            try {
-                if (stompClient.current.connected) {
-                    stompClient.current.send("/app/chat.sendPrivateMessage", {}, JSON.stringify(privateMessage));
-                    setMessage('');
-                } else {
-                    setMessages(prev => prev.filter(msg => msg.id !== messageId));
-                    messageIdsRef.current.delete(messageId);
-                }
-            } catch (error) {
-                console.error('Error sending message:', error);
-                setMessages(prev => prev.filter(msg => msg.id !== messageId));
-                messageIdsRef.current.delete(messageId);
-            }
-        }
-    };
-
-    const formatTime = (timestamp) => {
-        return new Date(timestamp).toLocaleTimeString('en-US', {
-            timeZone: 'Asia/Kolkata',
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    if (isLoading) {
-        return (
-            <div className="private-chat-window">
-                <div className="private-chat-header">
-                    <h3>💬 {recipientUser}</h3>
-                    <button onClick={onClose} className="close-btn">✕</button>
-                </div>
-                <div className="loading">Loading messages...</div>
-            </div>
-        );
+  const sendMessage = (e) => {
+    e.preventDefault();
+    if (message.trim() && stompClient.current && stompClient.current.connected) {
+      const privateMessage = {
+        sender: currentUser,
+        recipient: recipientUser,
+        content: message,
+        type: "PRIVATE",
+        color: userColor,
+      };
+      stompClient.current.send(
+        "/app/chat.privateMessage",
+        {},
+        JSON.stringify(privateMessage)
+      );
+      setMessages((prev) => [...prev, privateMessage]);
+      setMessage("");
+      setShowEmojiPicker(false);
     }
+  };
 
-    return (
-        <div className="private-chat-window">
-            <div className="private-chat-header">
-                <div className="recipient-info">
-                    <div className="recipient-avatar">
-                        {recipientUser.charAt(0).toUpperCase()}
-                    </div>
-                    <h3>💬 {recipientUser}</h3>
-                </div>
-                <button onClick={onClose} className="close-btn">✕</button>
-            </div>
+  const handleTyping = (e) => {
+    setMessage(e.target.value);
 
-            <div className="private-messages-container">
-                {messages.length === 0 ? (
-                    <div className="no-messages">
-                        <p>No messages yet. Start the conversation!</p>
-                    </div>
-                ) : (
-                    messages.map((msg) => (
-                        <div key={msg.id} className={`private-message ${msg.sender === currentUser ? 'own-message' : 'received-message'}`}>
-                            <div className="message-header">
-                                <span
-                                    className="sender-name"
-                                    style={{ color: msg.color || '#6B73FF' }}
-                                >
-                                    {msg.sender === currentUser ? 'You' : msg.sender}
-                                </span>
-                                <span className="timestamp">
-                                    {formatTime(msg.timestamp)}
-                                </span>
-                            </div>
-                            <div className="message-content">
-                                {msg.content}
-                            </div>
-                        </div>
-                    ))
-                )}
-                <div ref={messagesEndRef} />
-            </div>
+    if (stompClient.current && stompClient.current.connected && e.target.value.trim()) {
+      stompClient.current.send(
+        "/app/chat.privateMessage",
+        {},
+        JSON.stringify({
+          sender: currentUser,
+          recipient: recipientUser,
+          type: "TYPING",
+        })
+      );
+    }
+  };
 
-            <div className="private-message-input-container">
-                <form onSubmit={sendPrivateMessage} className="private-message-form">
-                    <input
-                        type="text"
-                        placeholder={`Message ${recipientUser}...`}
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        className="private-message-input"
-                        maxLength={500}
-                    />
-                    <button
-                        type="submit"
-                        disabled={!message.trim()}
-                        className="private-send-button"
-                    >
-                        📤
-                    </button>
-                </form>
-            </div>
+  const addEmoji = (emoji) => {
+    setMessage((prev) => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const formatTime = (timestamp) =>
+    new Date(timestamp).toLocaleTimeString("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour12: true,
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+  return (
+    <div className="private-chat-window">
+      <div className="private-chat-header">
+        <div className="chat-title">
+          <div className="chat-avatar">{recipientUser.charAt(0).toUpperCase()}</div>
+          <span>{recipientUser}</span>
         </div>
-    );
+        <button className="close-btn" onClick={onClose} title="Close">
+          ✕
+        </button>
+      </div>
+
+      <div className="private-messages">
+        {messages.length === 0 ? (
+          <div className="empty-private">
+            <div className="empty-icon">💌</div>
+            <p>No private messages yet</p>
+          </div>
+        ) : (
+          messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`private-message ${
+                msg.sender === currentUser ? "own" : "other"
+              }`}
+            >
+              <div
+                className="private-avatar"
+                style={{ backgroundColor: msg.color || "#007bff" }}
+              >
+                {msg.sender.charAt(0).toUpperCase()}
+              </div>
+              <div className="private-content">
+                <div className="private-header">
+                  <span
+                    className="private-sender"
+                    style={{ color: msg.color || "#007bff" }}
+                  >
+                    {msg.sender === currentUser ? "You" : msg.sender}
+                  </span>
+                  <span className="private-time">{formatTime(msg.timestamp)}</span>
+                </div>
+                <div className="private-text">{msg.content}</div>
+              </div>
+            </div>
+          ))
+        )}
+
+        {isTyping && (
+          <div className="typing-indicator">
+            <span>{recipientUser} is typing</span>
+            <div className="typing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {showEmojiPicker && (
+        <div className="emoji-picker">
+          <div className="emoji-grid">
+            {emojis.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => addEmoji(emoji)}
+                className="emoji-btn"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={sendMessage} className="private-input-area">
+        <button
+          type="button"
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          className="emoji-toggle-btn"
+          title="Add emoji"
+        >
+          😀
+        </button>
+        <input
+          type="text"
+          placeholder={`Message ${recipientUser}...`}
+          value={message}
+          onChange={handleTyping}
+          className="private-input"
+        />
+        <button type="submit" className="send-btn" disabled={!message.trim()}>
+          🚀
+        </button>
+      </form>
+    </div>
+  );
 };
 
 export default PrivateChat;
