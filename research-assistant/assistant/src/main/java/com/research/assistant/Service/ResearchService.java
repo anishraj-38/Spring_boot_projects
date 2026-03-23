@@ -3,6 +3,8 @@ package com.research.assistant.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.research.assistant.DTO.OpenRouter;
 import com.research.assistant.DTO.ResearchRequest;
+import com.research.assistant.Entity.ResearchData;
+import com.research.assistant.Repository.ResearchRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -18,19 +20,38 @@ public class ResearchService {
     private final ObjectMapper objectMapper;
     private final String openRouterApiUrl;
     private final String openRouterApiKey;
+    private final ResearchRepository researchRepository; // ✅ DB
 
-    // Constructor injection
-    public ResearchService(WebClient.Builder webClientBuilder,
-                           ObjectMapper objectMapper,
-                           @Value("${open.router.api.url}") String openRouterApiUrl,
-                           @Value("${open.router.api.key}") String openRouterApiKey) {
+    public ResearchService(
+            WebClient.Builder webClientBuilder,
+            ObjectMapper objectMapper,
+            ResearchRepository researchRepository,
+            @Value("${open.router.api.url}") String openRouterApiUrl,
+            @Value("${open.router.api.key}") String openRouterApiKey
+    ) {
         this.webClientBuilder = webClientBuilder;
         this.objectMapper = objectMapper;
+        this.researchRepository = researchRepository;
         this.openRouterApiUrl = openRouterApiUrl;
         this.openRouterApiKey = openRouterApiKey;
     }
 
     public String processContent(ResearchRequest request) {
+
+
+        if ("save".equalsIgnoreCase(request.getOperation())) {
+
+            ResearchData data = new ResearchData();
+            data.setContent(request.getContent());
+            data.setOperation("save");
+            data.setResult("Saved manually from extension");
+
+            researchRepository.save(data);
+
+            return "Notes saved successfully";
+        }
+
+
         String prompt = buildPrompt(request);
 
         Map<String, Object> requestBody = Map.of(
@@ -51,7 +72,17 @@ public class ResearchService {
                     .bodyToMono(String.class)
                     .block();
 
-            return extractTextFromResponse(response);
+            String result = extractTextFromResponse(response);
+
+
+            ResearchData data = new ResearchData();
+            data.setContent(request.getContent());
+            data.setOperation(request.getOperation());
+            data.setResult(result);
+
+            researchRepository.save(data);
+
+            return result;
 
         } catch (WebClientResponseException e) {
             return "API Error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString();
@@ -72,19 +103,22 @@ public class ResearchService {
         }
     }
 
-
     private String buildPrompt(ResearchRequest request) {
         StringBuilder prompt = new StringBuilder();
+
         switch (request.getOperation()) {
             case "summarize":
                 prompt.append("Please provide a clear and concise summary of the following text:\n\n");
                 break;
+
             case "suggest":
                 prompt.append("Based on the following text, suggest related topics and further reading with headings and bullet points:\n\n");
                 break;
+
             default:
                 throw new IllegalArgumentException("Unknown operation: " + request.getOperation());
         }
+
         prompt.append(request.getContent());
         return prompt.toString();
     }

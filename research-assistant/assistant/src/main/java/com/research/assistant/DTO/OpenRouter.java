@@ -18,7 +18,7 @@ public class OpenRouter {
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Message {
-        private String content; // <-- change from List<Content> to String
+        private String content;
         private String role;
     }
 }
